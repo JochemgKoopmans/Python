@@ -1,0 +1,438 @@
+## IMPORTING PACKAGES
+import pandas as pd
+import json
+
+## IMPORTING THE DATA FILE
+testing = False
+if testing:
+    df = pd.read_csv(r'test_responses.csv', sep=',', header=0)
+else:
+    df_name = input("Please enter the name of the datafile: ")
+    df = pd.read_csv(r''+df_name+'.csv', sep=',', header=0)
+
+print('raw-data csv imported')
+
+## REFACTORING COLUMNS CONTAINING ANSWERS IN OBJECTS
+    # Each object property gets its own column
+    # Applies to questionnaire items 8 ('question26'), 9 ('question7'), 17 ('question15'), 19 ('question20'), 23 ('question22'), 27 ('question28')
+    # The programming strategy is similar for each of these questions and explained for the first question
+print('Refactoring columns where answers are stored in dictionaries')
+
+## Questionnaire item 8 ('question26')
+df['question26'] = [json.loads(x) for x in df['question26']] #the string array-containing-objects is now transformed to python array containing dictionaries
+
+native_languages = []
+max_native_languages = max(len(i) for i in df['question26']) #finds the maximum number of entries for this question in the output file ...
+for i in range(max_native_languages): #... and creates the necessary number of columns for every participant's answer to fit
+    native_languages.append([])
+
+for pp in range(len(df.index)): #for every participant ...
+    natives = 0
+    native_lang_info = df.at[pp,'question26']
+    for lang in range(len(native_lang_info)): #... and each answer ...
+        if len(native_lang_info[lang]) == 0:
+            continue
+        native_languages[natives].append(native_lang_info[lang]["Moedertaal(s)"] if "Moedertaal(s)" in native_lang_info[lang] else native_languages[natives].append('')) #...add the n-th property to the n-th column if that answer has such column...
+        natives += 1
+    while natives < max_native_languages: #... and pad leftover columns with empty entries ('')
+        native_languages[natives].append('')
+        natives += 1
+
+for i in range(max_native_languages):
+    df['Q08_native_language_' + str(i+1)] = native_languages[i] #adds the newly created columns to the dataframe
+
+## Questionnaire item 9 ('question7')
+df['question7'] = [json.loads(x) for x in df['question7']]
+
+non_natives = []
+max_non_native_langs = max([len(i) for i in df['question7']])
+for i in range(max_non_native_langs*5):
+    non_natives.append([])
+
+for pp in range(len(df.index)):
+    langs = 0
+    lang_info = df.at[pp,'question7']
+    for lang in range(len(lang_info)):
+        if len(lang_info[lang]) == 0:
+            continue
+        non_natives[(langs*5)+0].append(lang_info[lang]["Taal"]) if "Taal" in lang_info[lang]                                                       else non_natives[(langs*5)+0].append('')
+        non_natives[(langs*5)+1].append(lang_info[lang]["Leeftijd van leren"]) if "Leeftijd van leren" in lang_info[lang]                           else non_natives[(langs*5)+1].append('')    
+        non_natives[(langs*5)+2].append(lang_info[lang]["Jaren van gebruik"]) if "Jaren van gebruik" in lang_info[lang]                             else non_natives[(langs*5)+2].append('')
+        non_natives[(langs*5)+3].append(lang_info[lang]["Hoe heb je het geleerd?"]) if "Hoe heb je het geleerd?" in lang_info[lang]                 else non_natives[(langs*5)+3].append('') # Is further recoded below
+        non_natives[(langs*5)+4].append(lang_info[lang]["Hoe heb je het geleerd?-Comment"]) if "Hoe heb je het geleerd?-Comment" in lang_info[lang] else non_natives[(langs*5)+4].append('')
+        langs += 1
+    while langs < max_non_native_langs:
+        non_natives[(langs*5)+0].append('')
+        non_natives[(langs*5)+1].append('')
+        non_natives[(langs*5)+2].append('')
+        non_natives[(langs*5)+3].append('')
+        non_natives[(langs*5)+4].append('')
+        langs += 1
+
+for i in range(max_non_native_langs):
+    df['Q09_non_native_language_' + str(i+1)] = non_natives[i*5+0]
+    df['Q09_non_native_age_of_acquisition_' + str(i+1)] = non_natives[i*5+1]
+    df['Q09_non_native_years_of_use_' + str(i+1)] = non_natives[i*5+2]
+    df['Q09_non_native_way_of_learning_' + str(i+1)] = non_natives[i*5+3]
+    df['Q09_non_native_way_of_learning_comment_' + str(i+1)] = non_natives[i*5+4]
+
+## Questionnaire item 17 ('question15')
+df['question15'] = [json.loads(x) if isinstance(x,str) else str(x) for x in df['question15']]
+
+en_class_types = []
+
+max_en_classes = max([len(i) for i in df['question15']])
+for i in range(max_en_classes*2):
+    en_class_types.append([])
+
+for pp in range(len(df.index)):
+    classes = 0
+    en_class_info = df.at[pp,'question15']
+    if type(en_class_info) == list:
+        for en_class in range(len(en_class_info)):
+            if len(en_class_info[en_class]) == 0:
+                continue
+            en_class_types[classes*2+0].append(en_class_info[en_class]["Column 1"]) if "Column 1" in en_class_info[en_class] else en_class_types[classes*2+0].append('')
+            en_class_types[classes*2+1].append(en_class_info[en_class]["Column 2"]) if "Column 2" in en_class_info[en_class] else en_class_types[classes*2+1].append('')
+            classes += 1
+    while classes < max_en_classes:
+        en_class_types[classes*2+0].append('')
+        en_class_types[classes*2+1].append('')
+        classes += 1
+
+for i in range(max_en_classes):
+    df['Q17_english_lessons_duration_' + str(i+1)] = en_class_types[i*2+0]
+    df['Q17_english_lessons_starting_age_' + str(i+1)] = en_class_types[i*2+1]
+
+## Questionnaire item 19 ('question20')
+df['question20'] = [json.loads(x) if isinstance(x,str) else str(x) for x in df['question20']]
+
+en_accent_lesson_types = []
+
+max_en_accent_lessons = max([len(i) if type(i) == list else 1 for i in df['question20']])
+for i in range(max_en_accent_lessons*2):
+    en_accent_lesson_types.append([])
+
+for pp in range(len(df.index)):
+    accent_lessons = 0
+    accent_lesson_info = df.at[pp,'question20']
+    if type(accent_lesson_info) == list:
+        for lesson in range(len(accent_lesson_info)):
+            if len(accent_lesson_info[lesson]) == 0:
+                continue
+            en_accent_lesson_types[accent_lessons*2+0].append(accent_lesson_info[lesson]["Column 1"]) if "Column 1" in accent_lesson_info[lesson] else en_accent_lesson_types[accent_lessons*2+0].append('')
+            en_accent_lesson_types[accent_lessons*2+1].append(accent_lesson_info[lesson]["Column 2"]) if "Column 2" in accent_lesson_info[lesson] else en_accent_lesson_types[accent_lessons*2+1].append('')
+            accent_lessons += 1
+    while accent_lessons < max_en_accent_lessons:
+        en_accent_lesson_types[accent_lessons*2+0].append('')
+        en_accent_lesson_types[accent_lessons*2+1].append('')
+        accent_lessons += 1
+
+for i in range(max_en_accent_lessons):
+    df['Q19_native_english_training_duration_' + str(i+1)] = en_accent_lesson_types[i*2+0]
+    df['Q19_native_english_training_age_' + str(i+1)] = en_accent_lesson_types[i*2+1]
+
+## Questionnaire item 23 ('question22')
+df['question22'] = [json.loads(x) for x in df['question22']]
+
+live_abroad_times = []
+
+max_live_abroad = max([len(i) for i in df['question22']])
+for i in range(max_live_abroad*3):
+    live_abroad_times.append([])
+
+for pp in range(len(df.index)):
+    live_abroad = 0
+    live_abroad_info = df.at[pp,'question22']
+    for abroad in range(len(live_abroad_info)):
+        if len(live_abroad_info[abroad]) == 0:
+            continue
+        live_abroad_times[live_abroad*3+0].append(live_abroad_info[abroad]["Column 1"]) if "Column 1" in live_abroad_info[abroad] else live_abroad_times[live_abroad*3+0].append('')
+        live_abroad_times[live_abroad*3+1].append(live_abroad_info[abroad]["Column 2"]) if "Column 2" in live_abroad_info[abroad] else live_abroad_times[live_abroad*3+1].append('')
+        live_abroad_times[live_abroad*3+2].append(live_abroad_info[abroad]["Column 3"]) if "Column 3" in live_abroad_info[abroad] else live_abroad_times[live_abroad*3+2].append('')
+        live_abroad += 1
+    while live_abroad < max_live_abroad:
+        live_abroad_times[live_abroad*3+0].append('')
+        live_abroad_times[live_abroad*3+1].append('')
+        live_abroad_times[live_abroad*3+2].append('')
+        live_abroad += 1
+
+for i in range(max_live_abroad):
+    df['Q23_lived_abroad_country_' + str(i+1)] = live_abroad_times[i*3+0]
+    df['Q23_lived_abroad_duration_' + str(i+1)] = live_abroad_times[i*3+1]
+    df['Q23_lived_abroad_languages_' + str(i+1)] = live_abroad_times[i*3+2]
+
+## Questionnaire item 27 ('question28')
+df['question28'] = [json.loads(x) for x in df['question28']]
+
+accent_strategy_types = []
+
+max_accent_strategies = max([len(i) for i in df['question28']])
+for i in range(max_accent_strategies*2):
+    accent_strategy_types.append([])
+
+for pp in range(len(df.index)):
+    accent_strategy = 0
+    accent_strategy_info = df.at[pp,'question28']
+    for strategy in range(len(accent_strategy_info)):
+        if len(accent_strategy_info[strategy]) == 0:
+            continue
+        accent_strategy_types[accent_strategy*2+0].append(accent_strategy_info[strategy]["Column 1"]) if "Column 1" in accent_strategy_info[strategy] else accent_strategy_types[accent_strategy*2+0].append('')
+        accent_strategy_types[accent_strategy*2+1].append(accent_strategy_info[strategy]["Column 2"]) if "Column 2" in accent_strategy_info[strategy] else accent_strategy_types[accent_strategy*2+1].append('')
+        accent_strategy += 1
+    while accent_strategy < max_accent_strategies:
+        accent_strategy_types[accent_strategy*2+0].append('')
+        accent_strategy_types[accent_strategy*2+1].append('')
+        accent_strategy += 1
+
+for i in range(max_accent_strategies):
+    df['Q27_english_accent_strategy_' + str(i+1)] = accent_strategy_types[i*2+0]
+    df['Q27_english_accent_strategy_' + str(i+1)] = accent_strategy_types[i*2+1]
+
+##RECODING MC ANSWERS
+    # Applies to questionnaire items 3 (question3), 4 (question4), 5 (question5), 7 (question6), 9 (question7 but recoded above),
+        # 12 (question11), 13 (question32), 16 (question14), 18 (question16), 21 (question19),
+        # 22 (question21), 24 (question23), 26 (question17)
+print('Recoding multiple-choice answers to their English translations')
+## Questionnaire item 3 ('question3')
+df['question3'] = [json.loads(x) for x in df['question3']]
+for pp in range(len(df.index)):
+    for item in range(len(df.at[pp,'question3'])):
+        if df.at[pp,'question3'][item] == 'item1':
+            df.at[pp,'question3'][item] = 'male'
+        elif df.at[pp,'question3'][item] == 'item4':
+            df.at[pp,'question3'][item] = 'female'
+        elif df.at[pp,'question3'][item] == 'item7':
+            df.at[pp,'question3'][item] = 'non-binary'
+        elif df.at[pp,'question3'][item] == 'item9':
+            df.at[pp,'question3'][item] = 'trans'
+        elif df.at[pp,'question3'][item] == 'item8':
+            df.at[pp,'question3'][item] = 'rather not say'
+
+## Questionnaire item 4 ('question4')
+df['question4'] = [json.loads(x) for x in df['question4']]
+for pp in range(len(df.index)):
+    for item in range(len(df.at[pp,'question4'])):
+        if df.at[pp,'question4'][item] == 'item1':
+            df.at[pp,'question4'][item] = 'right'
+        elif df.at[pp,'question4'][item] == 'item2':
+            df.at[pp,'question4'][item] = 'left'
+        elif df.at[pp,'question4'][item] == 'item3':
+            df.at[pp,'question4'][item] = 'both'
+
+## Questionnaire item 5 ('question5')
+df['question5'] = [json.loads(x) for x in df['question5']]
+for pp in range(len(df.index)):
+    for item in range(len(df.at[pp,'question5'])):
+        if df.at[pp,'question5'][item] == 'itemUnder':
+            df.at[pp,'question5'][item] = 'secondary school'
+        elif df.at[pp,'question5'][item] == 'item2':
+            df.at[pp,'question5'][item] = 'bachelor'
+        elif df.at[pp,'question5'][item] == 'item4':
+            df.at[pp,'question5'][item] = 'master'
+        elif df.at[pp,'question5'][item] == 'item3':
+            df.at[pp,'question5'][item] = 'doctorate'
+
+## Questionnaire item 7 ('question6')
+df['question6'] = [json.loads(x) for x in df['question6']]
+for pp in range(len(df.index)):
+    for item in range(len(df.at[pp,'question6'])):
+        if df.at[pp,'question6'][item] == 'item10':
+            df.at[pp,'question6'][item] = 'dyslexia'
+        elif df.at[pp,'question6'][item] == 'item12':
+            df.at[pp,'question6'][item] = 'dysgraphia'
+        elif df.at[pp,'question6'][item] == 'item11':
+            df.at[pp,'question6'][item] = 'dyscalculia'
+        elif df.at[pp,'question6'][item] == 'item9':
+            df.at[pp,'question6'][item] = 'undiagnosed difficulty reading and writing'
+        elif df.at[pp,'question6'][item] == 'item3':
+            df.at[pp,'question6'][item] = 'auditive processing disorder'
+        elif df.at[pp,'question6'][item] == 'item4':
+            df.at[pp,'question6'][item] = 'hearing problems'
+        elif df.at[pp,'question6'][item] == 'item5':
+            df.at[pp,'question6'][item] = 'problems with vision'
+        elif df.at[pp,'question6'][item] == 'item6':
+            df.at[pp,'question6'][item] = 'neurological disorders'
+        elif df.at[pp,'question6'][item] == 'item7':
+            df.at[pp,'question6'][item] = 'psychiatric/psychological disorder'
+        elif df.at[pp,'question6'][item] == 'item8':
+            df.at[pp,'question6'][item] = 'rather not say'
+
+## Questionnaire item 9 ('Q09_non_native_way_of_learning_x')
+for lang in range(max_non_native_langs):
+    for pp in range(len(df.index)):
+        for item in range(len(df.at[pp,'Q09_non_native_way_of_learning_'+str(lang+1)])):
+            if df.at[pp,'Q09_non_native_way_of_learning_'+str(lang+1)][item] == 'gdfgiu':
+                df.at[pp,'Q09_non_native_way_of_learning_'+str(lang+1)][item] = 'home/family'
+            elif df.at[pp,'Q09_non_native_way_of_learning_'+str(lang+1)][item] == 'dfhjhfkgvh':
+                df.at[pp,'Q09_non_native_way_of_learning_'+str(lang+1)][item] = 'school/formal'
+            elif df.at[pp,'Q09_non_native_way_of_learning_'+str(lang+1)][item] == 3:
+                df.at[pp,'Q09_non_native_way_of_learning_'+str(lang+1)][item] = 'immersion'
+            elif df.at[pp,'Q09_non_native_way_of_learning_'+str(lang+1)][item] == 4:
+                df.at[pp,'Q09_non_native_way_of_learning_'+str(lang+1)][item] = 'friends/partners/colleagues'
+
+## Questionnaire item 12 ('question11')
+for pp in range(len(df.index)):
+    if df.at[pp,'question11'] == 'item1':
+        df.at[pp,'question11'] == 1
+    elif df.at[pp,'question11'] == 'item2':
+        df.at[pp,'question11'] == 2
+    elif df.at[pp,'question11'] == 'item3':
+        df.at[pp,'question11'] == 3
+    elif df.at[pp,'question11'] == 'item4':
+        df.at[pp,'question11'] == 4
+    elif df.at[pp,'question11'] == 'item5':
+        df.at[pp,'question11'] == 5
+    elif df.at[pp,'question11'] == 'item6':
+        df.at[pp,'question11'] == 6
+    elif df.at[pp,'question11'] == 'item7':
+        df.at[pp,'question11'] == 7
+
+## Questionnaire item 13 ('question32')
+for pp in range(len(df.index)):
+    if df.at[pp,'question32'] == 'item1':
+        df.at[pp,'question32'] == 1
+    elif df.at[pp,'question32'] == 'item2':
+        df.at[pp,'question32'] == 2
+    elif df.at[pp,'question32'] == 'item3':
+        df.at[pp,'question32'] == 3
+    elif df.at[pp,'question32'] == 'item4':
+        df.at[pp,'question32'] == 4
+    elif df.at[pp,'question32'] == 'item5':
+        df.at[pp,'question32'] == 5
+    elif df.at[pp,'question32'] == 'item6':
+        df.at[pp,'question32'] == 6
+    elif df.at[pp,'question32'] == 'item7':
+        df.at[pp,'question32'] == 7
+
+## Questionnaire item 16 ('question14')
+df['question14'] = [json.loads(x) for x in df['question14']]
+for pp in range(len(df.index)):
+    for item in range(len(df.at[pp,'question14'])):
+        if df.at[pp,'question14'] == 'item1':
+            df.at[pp,'question14'] == 'yes'
+        elif df.at[pp,'question14'] == 'item2':
+            df.at[pp,'question14'] == 'no'
+
+## Questionnaire item 18 ('question16')
+df['question16'] = [json.loads(x) for x in df['question16']]
+for pp in range(len(df.index)):
+    for item in range(len(df.at[pp,'question16'])):
+        if df.at[pp,'question16'] == 'item1':
+            df.at[pp,'question16'] == 'yes'
+        elif df.at[pp,'question16'] == 'item2':
+            df.at[pp,'question16'] == 'no'
+
+## Questionnaire item 21 ('question19')
+df['question19'] = [json.loads(x) for x in df['question19']]
+for pp in range(len(df.index)):
+    for item in range(len(df.at[pp,'question19'])):
+        if df.at[pp,'question19'][item] == 'item1':
+            df.at[pp,'question19'][item] = 'american'
+        elif df.at[pp,'question19'][item] == 'item2':
+            df.at[pp,'question19'][item] = 'british'
+        elif df.at[pp,'question19'][item] == 'item3':
+            df.at[pp,'question19'][item] = 'australian'
+        elif df.at[pp,'question19'][item] == 'item4':
+            df.at[pp,'question19'][item] = 'no recognisable regional accent'
+        #There is an option 'other', that will generate a variable 'question19-Comment', but it was not part of the preliminary data file
+
+## Questionnaire item 22 ('question21')
+df['question21'] = [json.loads(x) for x in df['question21']]
+for pp in range(len(df.index)):
+    for item in range(len(df.at[pp,'question21'])):
+        if df.at[pp,'question21'][item] == 'item1':
+            df.at[pp,'question21'][item] = 'yes'
+        elif df.at[pp,'question21'][item] == 'item2':
+            df.at[pp,'question21'][item] = 'no'
+
+## Questionnaire item 24 ('question23')
+df['question23'] = [json.loads(x) if isinstance(x,str) else str(x) for x in df['question23']]
+for pp in range(len(df.index)):
+    for item in range(len(df.at[pp,'question23'])):
+        if df.at[pp,'question23'][item] == 'item1':
+            df.at[pp,'question23'][item] = 'yes now'
+        elif df.at[pp,'question23'][item] == 'item2':
+            df.at[pp,'question23'][item] = 'yes past'
+        elif df.at[pp,'question23'][item] == 'item3':
+            df.at[pp,'question23'][item] = 'no'
+
+## Questionnaire item 26 ('question17')
+df['question17'] = [json.loads(x) for x in df['question17']]
+for pp in range(len(df.index)):
+    for item in range(len(df.at[pp,'question17'])):
+        if df.at[pp,'question17'][item] == 'item1':
+            df.at[pp,'question17'][item] = 'yes'
+        elif df.at[pp,'question17'][item] == 'item2':
+            df.at[pp,'question17'][item] = 'no'
+        elif df.at[pp,'question17'][item] == 'item3':
+            df.at[pp,'question17'][item] = 'organically'
+
+##Renaming columns
+new_cols = { #Only changing the ones that need changing for the cleaned output file
+    'question1': 'Q01_pp_ID',
+    'question2': 'Q02_age',
+    'question3': 'Q03_gender',
+    'question3-Comment': 'Q03_gender_comment',
+    'question4': 'Q04_handedness',
+    'question5': 'Q05_education_level',
+    'question25': 'Q06_occupation',
+    'question6': 'Q07_diagnoses',
+    'question6-Comment': 'Q07_diagnoses_comment',
+    #'question26': 'Q08_native_languages, #new column names created above
+    #'question7': 'Q09_non_native_languages', #new column names created above
+    'question9.Taal 1.Kolom 1': 'Q10_non_native_lang_1_skill',
+    'question9.Taal 2.Kolom 1': 'Q10_non_native_lang_2_skill',
+    'question9.Taal 3.Kolom 1': 'Q10_non_native_lang_3_skill',
+    'question9.Taal 4.Kolom 1': 'Q10_non_native_lang_4_skill',
+    'question9.Taal 5.Kolom 1': 'Q10_non_native_lang_5_skill',
+    'question9.Taal 6.Kolom 1': 'Q10_non_native_lang_6_skill',
+    'question9.Taal 7.Kolom 1': 'Q10_non_native_lang_7_skill',
+    'question9.Taal 8.Kolom 1': 'Q10_non_native_lang_8_skill',
+    'question10.Taal 1.Kolom 3': 'Q11_accent_foreign_language_1',
+    'question10.Taal 2.Kolom 3': 'Q11_accent_foreign_language_2',
+    'question10.Taal 3.Kolom 3': 'Q11_accent_foreign_language_3',
+    'question10.Taal 4.Kolom 3': 'Q11_accent_foreign_language_4',
+    'question10.Taal 5.Kolom 3': 'Q11_accent_foreign_language_5',
+    'question10.Taal 6.Kolom 3': 'Q11_accent_foreign_language_6',
+    'question10.Taal 7.Kolom 3': 'Q11_accent_foreign_language_7',
+    'question10.Taal 8.Kolom 3': 'Q11_accent_foreign_language_8',
+    'question11': 'Q12_skill_learning_languages',
+    'question32': 'Q13_motivation_learning_languages',
+    'question12.Row 1.Column 3': 'Q14_speaking',
+    'question12.Row 2.Column 3': 'Q14_reading',
+    'question12.Row 3.Column 3': 'Q14_writing',
+    'question12.Row 4.Column 3': 'Q14_listening',
+    'question13': 'Q15_english_score',
+    'question14': 'Q16_english_lessons',
+    'question14-Comment': 'Q16_english_lessons_comment',
+    #'question15': 'Q17_english_lessons_yes', #new column names created above
+    'question16': 'Q18_accent_training',
+    #'question20': 'Q19_accent_training_yes', #new column names created above
+    'question18': 'Q20_phonetics',
+    'question19': 'Q21_english_accent_type',
+    'question19-Comment': 'Q21_english_accent_type_comment',
+    'question21': 'Q22_live_work_abroad',
+    #'question22': 'Q23_live_work_abroad_yes', #new column names created above
+    'question23': 'Q24_acquaintance_has_english_accent',
+    'question24': 'Q25_time_spent_with_acquaintance',
+    'question17': 'Q26_try_sound_english',
+    #'question28': 'Q27_methods_learning_english_accent', #new column names created above
+    'question29': 'Q28_listen_native_english',
+    'question30': 'Q29_listen_nonnative_english',
+    'question31': 'Q30_communicate_with_nonnative_english',
+    'question27': 'Q31_dutch_accent',
+    'question8': 'Q32_play_instrument',
+    'question33': 'Q32b_which_instrument',
+    'question36': 'Q33_good_singer',
+    'question37': 'Q34_singing_practice',
+    'question38': 'Q35_singing_classes',
+    'question34': 'Q36_hours_sleep',
+    'question35': 'Q37_sleep_well'
+}
+
+df.rename(columns=new_cols, inplace=True, errors='raise')
+print('Columns renamed to indicate the question and their order in the questionnaire (Q01-Q37)')
+
+df.to_csv('questionnaire_cleaned.csv')
+print('Done! See the file \'questionnaire_cleaned.csv\' in the current folder')
