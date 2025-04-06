@@ -1,0 +1,227 @@
+import pandas as pd
+import numpy as np
+import scipy.stats as stats
+
+#GlOBAL SCOPE
+participants = [1,2,3,4,5,6,7,8,
+                10,11,12,13,14,15,16,17,18,19,
+                20,21,22,23,24,25,26,27,28,29,
+                30,31,32,33,34,35,36,37,38,39,
+                41,42,43]
+
+trialStimuli = ['kXama', 'kXima', 'kXuma', 'kama', 'khama', 'khima', 'khuma', 'kima',
+           'kuma', 'pXama', 'pXima', 'pXuma', 'pama', 'phama',
+           'phima', 'phuma', 'pima', 'puma']
+practiceStimuli = ['na','no','nu','ra','sa','so','su']
+
+ignore = ['1','2','3','Discriminate']
+
+ppChecksList = []
+checkRowsList = []
+practicedPrimesList = []
+trialdPrimesList = []
+fillerdPrimeslist = []
+dPrimesList = []
+trialMatricesList = []
+practiceMatricesList = []
+
+def calculatedprime(table):
+    #Correct for inf scores:
+    sames = table.loc["sameTrial","sameAns"] + table.loc["sameTrial","diffAns"]
+    diffs = table.loc["diffTrial","sameAns"] + table.loc["diffTrial","diffAns"]
+    sameProportion = sames/(sames+diffs)
+    diffProportion = diffs/(sames+diffs)
+    #Calculate d'
+    hitRate = (table.loc["sameTrial","sameAns"] + sameProportion) / (table.loc["sameTrial","sameAns"] + table.loc["sameTrial","diffAns"] + 2*sameProportion)
+    faRate = (table.loc["diffTrial","sameAns"] + diffProportion) / (table.loc["diffTrial","sameAns"] + table.loc["diffTrial","diffAns"] + 2*diffProportion)
+    z_hitrate = stats.norm.ppf(hitRate)                    
+    z_falsealarm = stats.norm.ppf(faRate)
+    d = z_hitrate - z_falsealarm
+    return d
+
+def filldPrimeTable(table,stimulus,wordset):
+    if wordset[0] == wordset[1] and stimulus == '1':
+        table.loc["sameTrial","sameAns"] += 1
+    elif wordset[0] == wordset[1] and stimulus == '2':
+        table.loc["sameTrial","diffAns"] += 1
+    elif wordset[0] != wordset[1] and stimulus == '1':
+        table.loc["diffTrial","sameAns"] += 1
+    elif wordset[0] != wordset[1] and stimulus == '2':
+        table.loc["diffTrial","diffAns"] += 1
+
+for file in range(len(participants)):
+    #FILE-SCOPE
+    fileName = str(participants[file]) + '-Discriminate.log'
+    dataFile = pd.read_csv(r'../Discriminate/Logs/'+fileName, sep='\t', header=2)
+
+    #Initialising output objects
+    ppChecks = {
+        "participant": [participants[file]],
+        "foreignStimuli": [[]],
+        "otherResponses": [0],
+        "trialCount": [0],
+        "duration": [0]
+    }
+
+    trialType = 'practice'
+
+    practiceMatrix = {}
+    for item in practiceStimuli:
+        practiceMatrix[item] = []
+        for repeat in range(len(practiceStimuli)):
+            practiceMatrix[item].append([0,0]) #[number of trials, number of 'same' responses] 
+    practiceMatrix = pd.DataFrame(practiceMatrix, index=practiceStimuli) #Vertical for 1st stimulus, horizontal for 2nd stimulus
+
+    trialMatrix = {}
+    for item in trialStimuli:
+        trialMatrix[item] = []
+        for repeat in range(len(trialStimuli)):
+            trialMatrix[item].append([0,0]) #[number of trials, number of 'same' responses] 
+    trialMatrix = pd.DataFrame(trialMatrix, index=trialStimuli) #Vertical for 1st stimulus, horizontal for 2nd stimulus
+
+    dPrimeTable = {
+        "sameAns": [0,0],
+        "diffAns": [0,0]
+    }
+    practicedPrime = pd.DataFrame(dPrimeTable, index=["sameTrial","diffTrial"]) # for the practice trials
+    trialdPrime = pd.DataFrame(dPrimeTable, index=["sameTrial","diffTrial"]) # for same-trials and aspirated start phoneme trials
+    fillerdPrime = pd.DataFrame(dPrimeTable, index=["sameTrial","diffTrial"]) # for same-trials and different-vowel trials
+
+    retrievedStims = []
+
+    #Supporting variables
+    wordSet = []
+    checkRows = []
+
+    ## Analysing document
+    for row in range(len(dataFile.index)):
+        ## Break if end of trials is reached
+        if dataFile.loc[row,'Subject'] == 'Event Type':
+            break
+        
+        ## Experiment and data quality checks:
+        stimulus = str(dataFile.loc[row,'Code'])
+        if stimulus not in ignore:
+                if stimulus[len(stimulus)-1] in ['1','2','3','4']:
+                    stimulus = stimulus[0:len(stimulus)-1]
+            # Retrieving recognised stimuli
+        if (stimulus in trialStimuli) or (stimulus in practiceStimuli):
+            wordSet.append(stimulus)
+            if stimulus not in retrievedStims:
+                retrievedStims.append(stimulus)
+        elif stimulus not in ignore:
+            # Retrieving unrecognised stimuli
+            ppChecks["foreignStimuli"].append([row,stimulus])
+            checkRows.append([row,'new stim'])
+        
+            # Collect responses other than 1 ('z') or 2 ('v')
+        if stimulus == '3':
+            ppChecks["otherResponses"][0] += 1
+            if row != 0:
+                checkRows.append([row,'otherKey'])
+        
+            # Count number of trials, add duration
+        if dataFile.loc[row,'Code'] == 'Discriminate':
+            ppChecks["trialCount"][0] += 1
+            ppChecks['duration'][0] += int(dataFile.loc[row,'Duration'])
+
+        #fill in pairwise matrix (pandas dataframe) of stimuli and 2x2 d' table
+        if stimulus in ['1','2']:
+            if len(wordSet) != 2: #failsafe mechanism
+                checkRows.append([row,'unexp ans'])
+                wordSet = []
+                continue
+
+            if trialType != 'practice':
+                if wordSet[0] == wordSet[1]:
+                    trialType = 'sameTrial'
+                elif wordSet[0][len(wordSet[0])-3] == wordSet[1][len(wordSet[1])-3]: #the vowel is the same, it is a diffTrial
+                    trialType = 'diffTrial'
+                else:
+                    trialType = 'fillerTrial' 
+            elif wordSet == ['kuma','kXuma']: # first trial after practice
+                trialType = 'diffTrial'
+            
+            if trialType == 'practice':
+                practiceMatrix.loc[wordSet[0],wordSet[1]][0] += 1
+                if stimulus == '1':
+                    practiceMatrix.loc[wordSet[0],wordSet[1]][1] += 1
+                filldPrimeTable(practicedPrime,stimulus,wordSet)
+                wordSet = []
+            elif trialType == 'sameTrial':
+                trialMatrix.loc[wordSet[0],wordSet[1]][0] += 1
+                if stimulus == '1':
+                     trialMatrix.loc[wordSet[0],wordSet[1]][1] += 1
+                filldPrimeTable(trialdPrime,stimulus,wordSet)
+                filldPrimeTable(fillerdPrime,stimulus,wordSet)
+                wordSet = []
+            elif trialType == 'diffTrial':
+                trialMatrix.loc[wordSet[0],wordSet[1]][0] += 1
+                if stimulus == '1':
+                    trialMatrix.loc[wordSet[0],wordSet[1]][1] += 1
+                filldPrimeTable(trialdPrime,stimulus,wordSet)
+                wordSet = []
+            elif trialType == 'fillerTrial':
+                trialMatrix.loc[wordSet[0],wordSet[1]][0] += 1
+                if stimulus == '1':
+                    trialMatrix.loc[wordSet[0],wordSet[1]][1] += 1
+                filldPrimeTable(fillerdPrime,stimulus,wordSet)
+                wordSet = []
+
+    ppChecks["stimuliNum"] = [len(retrievedStims)]
+
+    # calculating dPrimes:
+    dPrimes = {
+        "practice": [calculatedprime(practicedPrime)],
+        "trial": [calculatedprime(trialdPrime)],
+        "filler": [calculatedprime(fillerdPrime)]
+    }
+
+    # Saving variables in lists
+    ppChecks = pd.DataFrame(ppChecks)
+    dPrimes = pd.DataFrame(dPrimes)
+
+    ppChecksList.append(ppChecks)
+    checkRowsList.append(checkRows)
+    practicedPrimesList.append(practicedPrime)
+    trialdPrimesList.append(trialdPrime)
+    fillerdPrimeslist.append(fillerdPrime)
+    dPrimesList.append(dPrimes)
+    trialMatricesList.append(trialMatrix)
+    practiceMatricesList.append(practiceMatrix)
+
+    print(ppChecks)
+    print(practicedPrime)
+    print(trialdPrime)
+    print(fillerdPrime)
+    print(dPrimes)
+    print(trialMatrix)
+    print(checkRows)
+
+readMeDict = {
+    "Sheet layout information": [
+        '''The top-left table shows task-level information about unusual events: Foreign stimuli are sounds not recognised by the analysis script, otherResponses are the number of times a key other than \'z\' or \'v\' was pressed, trialCount should be 156, duration is shown in .1ms (10 000 = 1s), stimuli number is the number of used stimuli (should be 25).''',
+        '''In column M you see a list of rows where something unusual happened, with an approximate row number and reason. Rows 25 and 50 \'otherKey\' should be expected, these are spacebar entries after instructions.''',
+        '''Three tables taking up rows 4-6 show the practice trials, trials of interest and filler trials respectively. In case some trials were handled incorrectly, you can change the numbers here manually. Note that same-trials (where stimulus 1 and 2 are the same word) are included in both \'trial\' and \'filler\'.''',
+        '''Rows 8-9 shows the d-prime values based on the original d\' tables. If you change those values, you will need to update the d\' values manually.''',
+        '''Below the d\' values you will see tables with each individual trial (normal and filler). Each possible stimulus combination is represented by [x,y], where x is the number of times this trial was presented and y is the number of times the participant answered \'z\' for same. The vertical axis shows the first stimulus, the horizontal axis the second stimulus.''',
+        '''The last table shows the practice trials in a similar format as the normal trials.'''
+    ]
+}
+readMe = pd.DataFrame(readMeDict, index = ["Participant checks:","Check rows:","d\' tables:","d\' values:","trial table:","practice trial table:"])
+
+with pd.ExcelWriter('koreanStopsPrepared.xlsx',
+    mode="a",
+    engine="openpyxl",
+    if_sheet_exists="overlay",
+    ) as writer:
+        readMe.to_excel(writer,sheet_name='readMe', index=True)
+        for pp in range(len(participants)):
+            ppChecksList[pp].to_excel(writer, sheet_name=str(pp+1), index=False)
+            pd.DataFrame({"checkRows": checkRowsList[pp]}).to_excel(writer, sheet_name=str(pp+1),startcol=12, index=False)
+            practicedPrimesList[pp].to_excel(writer, sheet_name=str(pp+1), startrow=3, startcol=0)
+            trialdPrimesList[pp].to_excel(writer, sheet_name=str(pp+1), startrow=3, startcol=4)
+            fillerdPrimeslist[pp].to_excel(writer,sheet_name=str(pp+1), startrow=3, startcol=8)
+            dPrimesList[pp].to_excel(writer, sheet_name=str(pp+1), startrow=7)
+            trialMatricesList[pp].to_excel(writer, sheet_name=str(pp+1), startrow=10 if len(checkRows) <9 else len(checkRows)+2) #str(participants[file])
+            practiceMatricesList[pp].to_excel(writer, sheet_name=str(pp+1), startrow=30 if len(checkRows) <9 else len(checkRows) + 20)
