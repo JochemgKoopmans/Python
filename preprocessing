@@ -1,0 +1,221 @@
+import pandas as pd
+import numpy as np
+import statistics
+
+raters = ['rater1','rater2','rater3','rater4','rater5','rater7','rater8','rater9','rater10','rater12','rater15','rater16','rater17','rater18','rater20']
+
+## General: Demographics, time taken, debrief answers
+raterInfo = pd.DataFrame({
+    "rater": [],
+    "age": [],
+    "sex": [],
+    "duration": [], 
+    "strategy": [],
+    "accents": [],
+    "speakerExp": []
+})
+## Evaluation per pronouncer (m + sd)
+pronouncerMeans = pd.DataFrame({
+    "M": [], "F": [], "1": [], "2": [], "3": [], "4": [], "5": [], "6": [], "7": [], "8": [],
+    "9": [], "11": [], "12": [], "13": [], "14": [], "15": [], "16": [], "17": [], "18": [], "19": [],
+    "20": [], "21": [], "22": [], "23": [], "24": [], "25": [], "26": [], "27": [], "28": [], "29": [],
+    "30": [], "31": [], "32": [], "33": [], "34": [], "35": [], "36": [], "37": [], "38": [], "39": [],
+    "41": [], "42": [], "43": []
+})
+#pronouncerEvals = pd.DataFrame(pronouncerMeans)
+
+pronouncerSds = pd.DataFrame({
+    "M": [], "F": [], "1": [], "2": [], "3": [], "4": [], "5": [], "6": [], "7": [], "8": [],
+    "9": [], "11": [], "12": [], "13": [], "14": [], "15": [], "16": [], "17": [], "18": [], "19": [],
+    "20": [], "21": [], "22": [], "23": [], "24": [], "25": [], "26": [], "27": [], "28": [], "29": [],
+    "30": [], "31": [], "32": [], "33": [], "34": [], "35": [], "36": [], "37": [], "38": [], "39": [],
+    "41": [], "42": [], "43": []
+})
+
+wordMeans = pd.DataFrame({
+    "blöja": [], "hjärna": [], "julgran": [], "manet": [], "pinne": [], "ridå": [], "senap": [], "smörgås": [], "staket": [], "tidning": []
+})
+#wordEvals = pd.DataFrame(wordEvals)
+wordSds = pd.DataFrame({
+    "blöja": [], "hjärna": [], "julgran": [], "manet": [], "pinne": [], "ridå": [], "senap": [], "smörgås": [], "staket": [], "tidning": []
+})
+
+## Evaluation per block (m + sd)
+blockMeans = pd.DataFrame({
+    "1": [], "2": [], "3": [], "4": [], "5": [], "6": [], "7": [], "8": [], "9": [], "10": [],
+    "11": [], "12": [], "13": [], "14": [],"15": [], "16": [], "17": [], "18": [], "19": [], "20": []
+})
+#blockEvals = pd.DataFrame(blockEvals)
+blockSds = pd.DataFrame({
+    "1": [], "2": [], "3": [], "4": [], "5": [], "6": [], "7": [], "8": [], "9": [], "10": [],
+    "11": [], "12": [], "13": [], "14": [],"15": [], "16": [], "17": [], "18": [], "19": [], "20": []
+})
+
+## ============ FOR EACH RATER: ============
+for rater in range(len(raters)):
+    print(raters[rater])
+    dataFile = pd.read_csv('//CNAS.RU.NL/s4529901/Documents/Experiments/swedish-pronunciation/analysis/' + raters[rater] + '.csv')
+        # Get demographic info
+    demographicText = dataFile.loc[3,'response']
+    if raters[rater] == 'rater15':
+        demographicText = '{"age":"43","sex":"notIndicated","native":"native"}'
+    separators1 = []
+    for i in range(len(demographicText)):
+        if (demographicText[i] in [':',',']):
+            separators1.append(i)
+
+    debriefText = dataFile.loc[345,'response']
+    separators2 = []
+    for i in range(len(debriefText)):
+        if (debriefText[i] == '"'):
+            separators2.append(i)
+
+    info  = {
+        "rater": str(rater),
+        "age": demographicText[separators1[0]+2:separators1[1]-1],
+        "sex": demographicText[separators1[2]+2:separators1[3]-1],
+        "duration": float(dataFile.loc[346,'time_elapsed'])/60000,
+        "strategy": debriefText[separators2[2]+1:separators2[3]],
+        "accents": debriefText[separators2[6]+1:separators2[7]],
+        "speakerExp": debriefText[separators2[10]+1:separators2[11]]
+    }
+
+    raterInfo.loc[raters[rater]] = info #rater
+
+    # Extracting ratings
+    raterBlockMeans = {
+        "1": [], "2": [], "3": [], "4": [], "5": [], "6": [], "7": [], "8": [], "9": [], "10": [],
+        "11": [], "12": [], "13": [], "14": [], "15": [], "16": [], "17": [], "18": [], "19": [], "20": []
+    }
+    raterBlockSds = {
+        "1": [], "2": [], "3": [], "4": [], "5": [], "6": [], "7": [], "8": [], "9": [], "10": [],
+        "11": [], "12": [], "13": [], "14": [], "15": [], "16": [], "17": [], "18": [], "19": [], "20": []
+    }
+
+    raterPPmeans = {
+        "M": [], "F": [], "1": [], "2": [], "3": [], "4": [], "5": [], "6": [], "7": [], "8": [],
+        "9": [], "11": [], "12": [], "13": [], "14": [], "15": [], "16": [], "17": [], "18": [], "19": [],
+        "20": [], "21": [], "22": [], "23": [], "24": [], "25": [], "26": [], "27": [], "28": [], "29": [],
+        "30": [], "31": [], "32": [], "33": [], "34": [], "35": [], "36": [], "37": [], "38": [], "39": [],
+        "41": [], "42": [], "43": []
+    }
+    raterPPSds = {
+        "M": [], "F": [], "1": [], "2": [], "3": [], "4": [], "5": [], "6": [], "7": [], "8": [],
+        "9": [], "11": [], "12": [], "13": [], "14": [], "15": [], "16": [], "17": [], "18": [], "19": [],
+        "20": [], "21": [], "22": [], "23": [], "24": [], "25": [], "26": [], "27": [], "28": [], "29": [],
+        "30": [], "31": [], "32": [], "33": [], "34": [], "35": [], "36": [], "37": [], "38": [], "39": [],
+        "41": [], "42": [], "43": []
+    }
+
+    raterWordMeans = {
+        "blöja": [], "hjärna": [], "julgran": [], "manet": [], "pinne": [], "ridå": [], "senap": [], "smörgås": [], "staket": [], "tidning": []
+    }
+    raterWordSds = {
+        "blöja": [], "hjärna": [], "julgran": [], "manet": [], "pinne": [], "ridå": [], "senap": [], "smörgås": [], "staket": [], "tidning": []
+    }
+
+    block = 0
+    for i in range(6,344): #6,344
+        stim = dataFile.loc[i,'stimulus']
+        if not isinstance(stim, str):
+            if np.isnan(stim):
+                continue
+        #Check for new word
+        if stim[len(stim)-5:len(stim)] == '</h3>':
+            for j in range(len(stim)-6,len(stim)-16,-1):
+                if stim[j] == '>':
+                    word = stim[j+1:len(stim)-5]
+                    block += 1
+                    print('new word: ' + word + ' at line ' + str(i))
+                    break
+        
+        #Check for rating trial
+        elif stim[len(stim)-4:len(stim)] == '.wav':
+            if stim[len(stim)-6] == '_':
+                pronouncer = stim[len(stim)-5]
+            else:
+                pronouncer = stim[len(stim)-6:len(stim)-4]
+        
+            rating  = int(dataFile.loc[i,'response'])
+
+            raterBlockMeans[str(block)].append(rating)
+            raterPPmeans[pronouncer].append(rating)
+            raterWordMeans[word].append(rating)
+
+    for block in raterBlockMeans:
+        raterBlockSds[block] = statistics.stdev(raterBlockMeans[block])
+        raterBlockMeans[block] = statistics.mean(raterBlockMeans[block])
+    blockMeans.loc[rater] = raterBlockMeans
+    blockSds.loc[rater] = raterBlockSds
+
+    for pp in raterPPmeans:
+        raterPPSds[pp] = statistics.stdev(raterPPmeans[pp])
+        raterPPmeans[pp] = statistics.mean(raterPPmeans[pp])
+    pronouncerMeans.loc[rater] = raterPPmeans
+    pronouncerSds.loc[rater] = raterPPSds
+
+    for word in raterWordMeans:
+        raterWordSds[word] = statistics.stdev(raterWordMeans[word])
+        raterWordMeans[word] = statistics.mean(raterWordMeans[word])
+    wordMeans.loc[rater] = raterWordMeans
+    wordSds.loc[rater] = raterWordSds
+
+blockMeans.loc["mean"] = blockMeans.mean() ## Mean of raters
+blockMeans["mean"] = blockMeans.mean(axis=1) ## Mean across blocks
+
+blockSds.loc["mean"] = blockSds.mean()
+blockSds["mean"] = blockSds.mean(axis=1)
+
+pronouncerMeans.loc["mean"] = pronouncerMeans.mean()
+pronouncerMeans["mean"] = pronouncerMeans.mean(axis=1)
+
+pronouncerSds.loc["mean"] = pronouncerSds.mean()
+pronouncerSds["mean"] = pronouncerSds.mean(axis=1)
+
+wordMeans.loc["mean"] = wordMeans.mean()
+wordMeans["mean"] = wordMeans.mean(axis=1)
+
+wordSds.loc["mean"] = wordSds.mean()
+wordSds["mean"] = wordSds.mean(axis=1)
+
+## Interrater reliability
+def interRaterReliability(df):
+    reliabilities = {}
+    for row in range(len(df.index)-1):
+        ownMeans = []
+        otherMeans = []
+        for col in range(len(df.columns)-1):
+            otherMeans.append( ( df.iloc[len(df.index)-1,col]*len(raters) - df.iloc[row,col] ) / len(raters)-1 )
+            ownMeans.append(df.iloc[row,col])
+        reliabilities[str(row)] = [np.corrcoef(ownMeans,otherMeans)[0][1]]
+    return pd.DataFrame(reliabilities)
+
+blockIRRs = interRaterReliability(blockMeans)
+blockIRRs = blockIRRs.transpose()
+
+pronouncerIRRs = interRaterReliability(pronouncerMeans)
+pronouncerIRRs = pronouncerIRRs.transpose()
+
+wordIRRs = interRaterReliability(wordMeans)
+wordIRRs = wordIRRs.transpose()
+
+print(blockIRRs.transpose())
+print(pronouncerIRRs.transpose())
+print(wordIRRs.transpose())
+
+## Output to an Excel file
+with pd.ExcelWriter('swedish_evaluations.xlsx',
+                    mode="a",
+                    engine="openpyxl",
+                    if_sheet_exists="overlay",
+                    ) as writer:
+    raterInfo.to_excel(writer, sheet_name='general_info', index=True)
+    pronouncerIRRs.to_excel(writer, sheet_name='pronouncer_scores', startcol=0, index=True)
+    pronouncerMeans.to_excel(writer, sheet_name='pronouncer_scores', startcol=3, index=True)
+    pronouncerSds.to_excel(writer, sheet_name='pronouncer_scores', startcol=3, startrow=20, index=True)
+    wordIRRs.to_excel(writer, sheet_name='word_scores', startcol=0, index=True)
+    wordMeans.to_excel(writer, sheet_name='word_scores', startcol=3, index=True)
+    wordSds.to_excel(writer, sheet_name='word_scores', startcol=3, startrow=20, index=True)
+    blockIRRs.to_excel(writer, sheet_name='block_scores', startcol=0, index=True)
+    blockMeans.to_excel(writer, sheet_name='block_scores', startcol=3, index=True)
+    blockSds.to_excel(writer, sheet_name='block_scores', startcol=3, startrow=20, index=True)
